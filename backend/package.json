@@ -1,0 +1,12 @@
+{
+  "name": "openweather-speaker",
+  "version": "1.0.0",
+  "description": "An easy-to-use client for the OpenWeather API.",
+  "author": "hopeseekr",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.20.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1"
+  }
+}
