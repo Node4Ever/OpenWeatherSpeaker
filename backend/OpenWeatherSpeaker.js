@@ -15,29 +15,106 @@ app.get('/', function (req, res) {
     res.send('Hello, World!');
 });
 
-function grabDailyForecast(dailyData)
+function determineCloudiness(cloud_coverPercent)
 {
-    if (!dailyData || !dailyData.list || !dailyData.list[0].dt_txt) {
+    // See http://weather.gfc.state.ga.us/Info/WXexp.aspx
+    if (cloud_coverPercent <= 20) {
+        return "mostly-sunny";
+    } else if (cloud_coverPercent <= 50) {
+        return "partly-sunny";
+    } else if (cloud_coverPercent <= 70) {
+        return "mostly-cloudy";
+    }
+
+    return "cloudy";
+}
+
+function fetchUVIndex()
+
+function grabDailyForecast(data)
+{
+    const date = new Date(data.dt);
+
+    return {
+        city: data.name,
+        date: date.toDateString(),
+        temp: data.main.temp,
+        feels_like: data.main.feels_like,
+        wind_speed: data.wind.speed,
+    };
+}
+
+function grab5DaySummary(dailyData)
+{
+    if (!dailyData || !dailyData.list || !dailyData.list[0].dt_txt || !dailyData.list[0].main) {
         throw "Couldn't parse the OpenWeather API data. Did the API change?";
     }
 
+    let days = [];
+    let currentDay = null;
     dailyData.list.forEach(threeHourSummary => {
-        const date = new Date(threeHourSummary.dt);
-        console.log(threeHourSummary.dt + ' => ' + threeHourSummary.dt_txt + ' vs ' + date.getDate())
-        // date.getUTCHours()
-        // date.getDate();
+        // Turns "2020-10-01 11:33:22" into "2020-10-01".
+        const date = threeHourSummary.dt_txt.split(' ')[0];
+
+        // Create a new currentDay when the date changes.
+        if (!currentDay || currentDay.date != date) {
+            // Store the previous day.
+            if (currentDay) {
+                days.push(currentDay);
+            }
+
+            currentDay = {
+                date: date,
+                temp: { high: null, low: null },
+                humidity: null,
+                cloud_cover: null,
+                weather: null
+            };
+        }
+
+        if (!currentDay.temp.high || threeHourSummary.main.temp_max > currentDay.temp.high) {
+            currentDay.temp.high = threeHourSummary.main.temp_max;
+        }
+        if (!currentDay.humidity || threeHourSummary.main.humidity > currentDay.humidity) {
+            currentDay.humidity = threeHourSummary.main.humidity;
+        }
+
+        // Pick 3 PM for weather conditions.
+        if (threeHourSummary.dt_txt.split(' ')[1] === '15:00:00') {
+            currentDay.wind = threeHourSummary.wind;
+            currentDay.cloud_cover = determineCloudiness(threeHourSummary.clouds.all);
+            currentDay.weather = threeHourSummary.weather[0];
+        }
     });
+
+    console.log(days);
+
+    return days;
 }
 
-
-app.get("/weather/:city/5-day", function (req, res) {
+app.get('/weather/:city', function (req, res) {
     const city = req.params.city;
-    const apiURL = `${OPENWEATHER_HOST}/data/2.5/forecast?q=${city}&appid=${OPENWEATHER_APIKEY}`;
+    const apiURL = `${OPENWEATHER_HOST}/data/2.5/weather?appid=${OPENWEATHER_APIKEY}&q=${city}&units=imperial`;
 
     axios.get(apiURL).then(response => {
         // res.send(response.data);
-        grabDailyForecast(response.data);
         res.send(JSON.stringify(response.data, null, 4));
+    })
+    .catch(error => {
+        res.send({
+            "error": "Something went wrong",
+            "details": error
+        });
+    });
+});
+
+app.get("/weather/:city/5-day", function (req, res) {
+    const city = req.params.city;
+    const apiURL = `${OPENWEATHER_HOST}/data/2.5/forecast?appid=${OPENWEATHER_APIKEY}&q=${city}&units=imperial`;
+
+    axios.get(apiURL).then(response => {
+        // res.send(response.data);
+        res.send(JSON.stringify(grab5DaySummary(response.data), null, 4));
     })
     .catch(error => {
         res.send({
