@@ -29,18 +29,24 @@ function determineCloudiness(cloud_coverPercent)
     return "cloudy";
 }
 
-function fetchUVIndex()
+async function fetchUVIndex(lat, long)
+{
+    const apiURL = `${OPENWEATHER_HOST}/data/2.5/uvi?appid=${OPENWEATHER_APIKEY}&lat=${lat}&lon=${long}`;
+
+    return await axios.get(apiURL);
+}
 
 function grabDailyForecast(data)
 {
     const date = new Date(data.dt);
 
     return {
+        coords: { lat: data.coord.lat, long: data.coord.lon },
         city: data.name,
         date: date.toDateString(),
         temp: data.main.temp,
         feels_like: data.main.feels_like,
-        wind_speed: data.wind.speed,
+        wind_speed: data.wind.speed
     };
 }
 
@@ -87,8 +93,6 @@ function grab5DaySummary(dailyData)
         }
     });
 
-    console.log(days);
-
     return days;
 }
 
@@ -97,12 +101,18 @@ app.get('/weather/:city', function (req, res) {
     const apiURL = `${OPENWEATHER_HOST}/data/2.5/weather?appid=${OPENWEATHER_APIKEY}&q=${city}&units=imperial`;
 
     axios.get(apiURL).then(response => {
-        // res.send(response.data);
-        res.send(JSON.stringify(response.data, null, 4));
+        let forecast = grabDailyForecast(response.data);
+
+        fetchUVIndex(forecast.coords.lat, forecast.coords.lat)
+        .then(response => {
+            forecast.uv_index = response.data.value;
+            console.log(forecast);
+            res.send(JSON.stringify(forecast, null, 4));
+        })
     })
     .catch(error => {
         res.send({
-            "error": "Something went wrong",
+            "error": "Something went wrong2",
             "details": error
         });
     });
