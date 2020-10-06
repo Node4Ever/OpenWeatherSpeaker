@@ -36,17 +36,17 @@ async function fetchUVIndex(lat, long)
     return await axios.get(apiURL);
 }
 
-function grabDailyForecast(data)
+async function grabDailyForecast(data)
 {
     const date = new Date(data.dt);
 
     return {
-        coords: { lat: data.coord.lat, long: data.coord.lon },
         city: data.name,
         date: date.toDateString(),
         temp: data.main.temp,
         feels_like: data.main.feels_like,
-        wind_speed: data.wind.speed
+        wind_speed: data.wind.speed,
+        uv_index: fetchUVIndex(data.coord.lat, data.coord.lon)
     };
 }
 
@@ -63,7 +63,7 @@ function grab5DaySummary(dailyData)
         const date = threeHourSummary.dt_txt.split(' ')[0];
 
         // Create a new currentDay when the date changes.
-        if (!currentDay || currentDay.date != date) {
+        if (!currentDay || currentDay.date !== date) {
             // Store the previous day.
             if (currentDay) {
                 days.push(currentDay);
@@ -101,9 +101,10 @@ app.get('/weather/:city', function (req, res) {
     const apiURL = `${OPENWEATHER_HOST}/data/2.5/weather?appid=${OPENWEATHER_APIKEY}&q=${city}&units=imperial`;
 
     axios.get(apiURL).then(response => {
-        let forecast = grabDailyForecast(response.data);
+        // let forecast = grabDailyForecast(response.data);
 
-        fetchUVIndex(forecast.coords.lat, forecast.coords.lat)
+        // fetchUVIndex(forecast.coords.lat, forecast.coords.lat)
+        grabDailyForecast(response.data)
         .then(response => {
             forecast.uv_index = response.data.value;
             console.log(forecast);
