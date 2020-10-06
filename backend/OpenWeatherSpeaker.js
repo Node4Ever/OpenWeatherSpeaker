@@ -46,7 +46,7 @@ async function grabDailyForecast(data)
         temp: data.main.temp,
         feels_like: data.main.feels_like,
         wind_speed: data.wind.speed,
-        uv_index: fetchUVIndex(data.coord.lat, data.coord.lon)
+        uv_index: await fetchUVIndex(data.coord.lat, data.coord.lon).data
     };
 }
 
@@ -106,9 +106,8 @@ app.get('/weather/:city', function (req, res) {
         // fetchUVIndex(forecast.coords.lat, forecast.coords.lat)
         grabDailyForecast(response.data)
         .then(response => {
-            forecast.uv_index = response.data.value;
-            console.log(forecast);
-            res.send(JSON.stringify(forecast, null, 4));
+            console.log(response);
+            res.send(JSON.stringify(response.data, null, 4));
         })
     })
     .catch(error => {
